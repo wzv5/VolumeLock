@@ -31,52 +31,68 @@ wstring GetProcessImage(DWORD pid)
     return result;
 }
 
-class VolumeLock
+class VolumeLock : private AudioDeviceEvents, private AudioSessionEvents, private AudioDeviceEnumeratorEvents
 {
 public:
     VolumeLock(const filesystem::path& path, int volume) : m_targetprocess(path), m_targetvolume(volume)
     {
         auto device = m_enumerator.GetDefaultDevice();
         OnDefaultDeviceChanged(device);
-        m_enumerator.RegisterNotification(
-            bind(&VolumeLock::OnDeviceStateChanged, this, placeholders::_1, placeholders::_2),
-            bind(&VolumeLock::OnDefaultDeviceChanged, this, placeholders::_1));
+        m_enumerator.RegisterNotification(this);
     }
 
     ~VolumeLock()
     {
-        m_targetsessions.clear();
-        m_sessionMgr.reset();
+        ClearTargetSession();
         m_device.reset();
     }
 
-    void OnVolumeChanged(shared_ptr<AudioSession> session, int v)
+private:
+
+    void ReloadSession()
     {
-        if (v != m_targetvolume)
+        //Log("重载会话列表 ...");
+        auto sessions = m_device->GetAllSession();
+        for (auto& item : sessions)
         {
-            Log(stringstream() << "[" << session->GetProcessId() << "] 设置目标进程音量：" << v << " => " << m_targetvolume);
+            OnSessionAdded(m_device, item);
+        }
+    }
+
+    void ClearTargetSession()
+    {
+        for (auto&& i : m_targetsessions)
+        {
+            i->UnregisterNotification(this);
+        }
+        m_targetsessions.clear();
+    }
+
+    virtual void OnVolumeChanged(std::shared_ptr<AudioSession> session, int volume) override
+    {
+        if (volume != m_targetvolume)
+        {
+            Log(stringstream() << "[" << session->GetProcessId() << "] 设置目标进程音量：" << volume << " => " << m_targetvolume);
             session->SetVolume(m_targetvolume);
         }
     }
 
-    void OnStateChanged(shared_ptr<AudioSession> session, AudioSessionState s)
+    virtual void OnSessionRemoved(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session, int reason) override
     {
-        if (s == AudioSessionStateExpired)
+        session->UnregisterNotification(this);
+        m_targetsessions.erase(session);
+        if (reason == 1000)
         {
             Log(stringstream() << "[" << session->GetProcessId() << "] 进程已停止");
-            m_targetsessions.erase(session->GetInstanceId());
-            //Log(stringstream() << "当前监视中的会话数量：" << m_targetsessions.size());
         }
-    }
-
-    void OnDisconnected(shared_ptr<AudioSession> session, AudioSessionDisconnectReason r)
-    {
-        Log(stringstream() << "[" << session->GetProcessId() << "] 进程已断开");
-        m_targetsessions.erase(session->GetInstanceId());
+        else
+        {
+            Log(stringstream() << "[" << session->GetProcessId() << "] 进程已断开");
+        }
         //Log(stringstream() << "当前监视中的会话数量：" << m_targetsessions.size());
     }
 
-    void OnSessionCreated(shared_ptr<AudioSession> session)
+    virtual void OnSessionAdded(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session) override
     {
         auto pid = session->GetProcessId();
         auto path = GetProcessImage(pid);
@@ -84,11 +100,8 @@ public:
         {
             Log(stringstream() << "[" << session->GetProcessId() << "] 发现目标进程");
             //Log(session->GetInstanceId());
-            m_targetsessions[session->GetInstanceId()] = session;
-            session->RegisterNotification(
-                bind(&VolumeLock::OnVolumeChanged, this, placeholders::_1, placeholders::_2),
-                bind(&VolumeLock::OnStateChanged, this, placeholders::_1, placeholders::_2),
-                bind(&VolumeLock::OnDisconnected, this, placeholders::_1, placeholders::_2));
+            m_targetsessions.insert(session);
+            session->RegisterNotification(this);
             //Log(stringstream() << "当前监视中的会话数量：" << m_targetsessions.size());
             OnVolumeChanged(session, session->GetVolume());
             //session->SetVolume(g_targetvolume);
@@ -99,27 +112,20 @@ public:
         }
     }
 
-    void ReloadSession()
-    {
-        //Log("重载会话列表 ...");
-        m_targetsessions.clear();
-        auto sessions = m_sessionMgr->GetAllSession();
-        for (auto& item : sessions)
-        {
-            OnSessionCreated(item);
-        }
-    }
-
-    void OnDefaultDeviceChanged(shared_ptr<AudioDevice> device)
+    virtual void OnDefaultDeviceChanged(shared_ptr<AudioDevice> device) override
     {
         Log(wstringstream() << L"默认输出设备：" << device->GetFriendlyName());
+        if (m_device)
+        {
+            m_device->UnregisterNotification(this);
+        }
         m_device = device;
-        m_sessionMgr = device->GetSessionManager();
-        m_sessionMgr->RegisterNotification(bind(&VolumeLock::OnSessionCreated, this, placeholders::_1));
+        m_device->RegisterNotification(this);
+        ClearTargetSession();
         ReloadSession();
     }
 
-    void OnDeviceStateChanged(shared_ptr<AudioDevice> device, DWORD state)
+    virtual void OnDeviceStateChanged(shared_ptr<AudioDevice> device, DWORD state) override
     {
         switch (state)
         {
@@ -136,7 +142,7 @@ public:
             Log(wstringstream() << L"设备已拔出：" << device->GetFriendlyName());
             break;
         }
-        m_targetsessions.clear();
+        ClearTargetSession();
 
         // 设备重新激活，且为默认设备，重载会话
         if (state == DEVICE_STATE_ACTIVE && device == m_device)
@@ -151,8 +157,7 @@ private:
 
     AudioDeviceEnumerator m_enumerator;
     shared_ptr<AudioDevice> m_device;
-    shared_ptr<AudioSessionManager> m_sessionMgr;
-    map<wstring, shared_ptr<AudioSession>> m_targetsessions;
+    set<shared_ptr<AudioSession>> m_targetsessions;
 };
 
 

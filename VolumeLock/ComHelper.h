@@ -51,5 +51,58 @@ private:
     LONG _cRef = 1;
 };
 
+template <typename T1, typename T2>
+class UnknownImp2 : public UnknownImp<T1>
+{
+public:
+    virtual HRESULT STDMETHODCALLTYPE QueryInterface(
+        REFIID  riid,
+        VOID** ppvInterface)
+    {
+        if (__uuidof(T2) == riid)
+        {
+            UnknownImp<T1>::AddRef();
+            *ppvInterface = (T2*)this;
+        }
+        else
+        {
+            return UnknownImp<T1>::QueryInterface(riid, ppvInterface);
+        }
+        return S_OK;
+    }
+};
+
+class PropVarStr
+{
+public:
+    PropVarStr()
+    {
+        PropVariantInit(&m_data);
+    }
+
+    ~PropVarStr()
+    {
+        Clear();
+    }
+
+    HRESULT Clear()
+    {
+        return PropVariantClear(&m_data);
+    }
+
+    operator std::wstring()
+    {
+        return m_data.pwszVal;;
+    }
+
+    PROPVARIANT* operator &()
+    {
+        return &m_data;
+    }
+
+private:
+    PROPVARIANT m_data;
+};
+
 #define ThrowIfError(hr) \
     if (FAILED(hr)) { printf("hr = %x\n", hr); throw new std::runtime_error(""); }
