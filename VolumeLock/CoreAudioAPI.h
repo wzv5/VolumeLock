@@ -349,12 +349,19 @@ public:
 			ThrowIfError(sessionenum->GetCount(&sessioncount));
 			for (int i = 0; i < sessioncount; i++)
 			{
-				CComPtr<IAudioSessionControl> session;
-				ThrowIfError(sessionenum->GetSession(i, &session));
-				CComQIPtr<IAudioSessionControl2> session2(session);
-				auto wrapper = std::make_shared<AudioSession>(session2);
-				m_sessions.insert(wrapper);
-				wrapper->RegisterNotification_Inner(this);
+				try
+				{
+					CComPtr<IAudioSessionControl> session;
+					ThrowIfError(sessionenum->GetSession(i, &session));
+					CComQIPtr<IAudioSessionControl2> session2(session);
+					auto wrapper = std::make_shared<AudioSession>(session2);
+					m_sessions.insert(wrapper);
+					wrapper->RegisterNotification_Inner(this);
+				}
+				catch (const std::exception&)
+				{
+					// 任何原因失败都忽略该会话
+				}
 			}
 		}
 	}
@@ -445,8 +452,8 @@ private:
 	virtual void OnDisconnected(std::shared_ptr<AudioSession> session, AudioSessionDisconnectReason reason) override
 	{
 		session->UnregisterNotification_Inner(this);
-		// TODO: 释放后，API 仍然会回调，导致崩溃
-		// 临时解决方案是后台等待一段时间后再释放
+		// TODO: 猜测 API 内部在一个遍历循环中回调，回调中删除其中的成员会导致崩溃或异常
+		// 暂时解决方案是在后台线程中释放
 		std::thread::thread([](std::shared_ptr<AudioSession> s) {
 			Sleep(1000);
 			s.reset();

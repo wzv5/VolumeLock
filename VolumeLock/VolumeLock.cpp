@@ -180,6 +180,7 @@ int wmain(int argc, wchar_t** argv)
     int targetvolume = stoi(argv[2]);
 
     Log(wstringstream() << L"锁定 [" << targetprocess.wstring() << L"] 的音量为 [" << targetvolume << L"]");
+    Log("正在初始化 ...");
 
     VolumeLock lock(targetprocess, targetvolume);
 
