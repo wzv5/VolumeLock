@@ -9,6 +9,7 @@
 #include <map>
 #include <thread>
 #include <set>
+#include <mutex>
 
 #include <atlbase.h>
 #include <mmdeviceapi.h>
@@ -85,6 +86,7 @@ public:
 
 	virtual ~AudioSession()
 	{
+		std::lock_guard lock(m_mutex);
 		volume.Release();
 		session->UnregisterAudioSessionNotification(this);
 		// 在后台线程释放，Windows 系统本身会莫名出现多线程竞争状态，长时间卡死在释放阶段
@@ -167,11 +169,13 @@ public:
 
 	void RegisterNotification(AudioSessionEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.insert(cb);
 	}
 
 	void UnregisterNotification(AudioSessionEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.erase(cb);
 	}
 
@@ -180,11 +184,13 @@ private:
 
 	void RegisterNotification_Inner(AudioSessionEvents_Inner* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback_inner.insert(cb);
 	}
 
 	void UnregisterNotification_Inner(AudioSessionEvents_Inner* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback_inner.erase(cb);
 	}
 
@@ -312,6 +318,8 @@ private:
 
 	std::set<AudioSessionEvents*> m_callback;
 	std::set<AudioSessionEvents_Inner*> m_callback_inner;
+
+	std::mutex m_mutex;
 };
 
 class AudioDevice : private UnknownImp<IAudioSessionNotification>, public std::enable_shared_from_this<AudioDevice>, private AudioSessionEvents_Inner
@@ -368,6 +376,7 @@ public:
 
 	~AudioDevice()
 	{
+		std::lock_guard lock(m_mutex);
 		manager->UnregisterSessionNotification(this);
 		for (auto&& i : m_sessions)
 		{
@@ -414,11 +423,13 @@ public:
 
 	void RegisterNotification(AudioDeviceEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.insert(cb);
 	}
 
 	void UnregisterNotification(AudioDeviceEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.erase(cb);
 	}
 
@@ -451,6 +462,7 @@ private:
 
 	virtual void OnDisconnected(std::shared_ptr<AudioSession> session, AudioSessionDisconnectReason reason) override
 	{
+		std::lock_guard lock(m_mutex);
 		session->UnregisterNotification_Inner(this);
 		// TODO: 猜测 API 内部在一个遍历循环中回调，回调中删除其中的成员会导致崩溃或异常
 		// 暂时解决方案是在后台线程中释放
@@ -470,6 +482,7 @@ private:
 private:
 	virtual HRESULT STDMETHODCALLTYPE OnSessionCreated(IAudioSessionControl* NewSession)
 	{
+		std::lock_guard lock(m_mutex);
 		CComQIPtr<IAudioSessionControl2> session2(NewSession);
 		auto wrapper = std::make_shared<AudioSession>(session2);
 		m_sessions.insert(wrapper);
@@ -491,6 +504,8 @@ private:
 
 	std::set<std::shared_ptr<AudioSession>> m_sessions;
 	std::set<AudioDeviceEvents*> m_callback;
+
+	std::mutex m_mutex;
 };
 
 class AudioDeviceEnumerator : private UnknownImp<IMMNotificationClient>
@@ -521,6 +536,7 @@ public:
 
 	std::shared_ptr<AudioDevice> GetDefaultDevice()
 	{
+		std::lock_guard lock(m_mutex);
 		CComPtr<IMMDevice> device;
 		ThrowIfError(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device));
 		auto wrapper = std::make_shared<AudioDevice>(device);
@@ -529,11 +545,13 @@ public:
 
 	void RegisterNotification(AudioDeviceEnumeratorEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.insert(cb);
 	}
 
 	void UnregisterNotification(AudioDeviceEnumeratorEvents* cb)
 	{
+		std::lock_guard lock(m_mutex);
 		m_callback.erase(cb);
 	}
 
@@ -588,6 +606,7 @@ private:
 		/* [annotation][in] */
 		_In_  DWORD dwNewState)
 	{
+		std::lock_guard lock(m_mutex);
 		auto device = GetDeviceById(pwstrDeviceId);
 		FireDeviceStateChanged(device, dwNewState);
 		return S_OK;
@@ -597,6 +616,7 @@ private:
 		/* [annotation][in] */
 		_In_  LPCWSTR pwstrDeviceId)
 	{
+		std::lock_guard lock(m_mutex);
 		CComPtr<IMMDevice> device;
 		ThrowIfError(enumerator->GetDevice(pwstrDeviceId, &device));
 		auto wrapper = std::make_shared<AudioDevice>(device);
@@ -609,6 +629,7 @@ private:
 		/* [annotation][in] */
 		_In_  LPCWSTR pwstrDeviceId)
 	{
+		std::lock_guard lock(m_mutex);
 		auto device = GetDeviceById(pwstrDeviceId);
 		m_devices.erase(pwstrDeviceId);
 		FireDeviceRemoved(device);
@@ -623,6 +644,7 @@ private:
 		/* [annotation][in] */
 		_In_  LPCWSTR pwstrDefaultDeviceId)
 	{
+		std::lock_guard lock(m_mutex);
 		if (flow == eRender && role == eConsole)
 		{
 			auto device = GetDeviceById(pwstrDefaultDeviceId);
@@ -647,4 +669,6 @@ private:
 
 	std::map<std::wstring, std::shared_ptr<AudioDevice>> m_devices;
 	std::set<AudioDeviceEnumeratorEvents*> m_callback;
+
+	std::mutex m_mutex;
 };
