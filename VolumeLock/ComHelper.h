@@ -105,4 +105,4 @@ private:
 };
 
 #define ThrowIfError(hr) \
-    if (FAILED(hr)) { printf("hr = %x\n", hr); throw new std::runtime_error(""); }
+    if (FAILED(hr)) { printf("hr = %x\n", hr); throw std::runtime_error(""); }
