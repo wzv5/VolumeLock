@@ -623,8 +623,11 @@ private:
 		/* [annotation][in] */
 		_In_  LPCWSTR pwstrDefaultDeviceId)
 	{
-		auto device = GetDeviceById(pwstrDefaultDeviceId);
-		FireDefaultDeviceChanged(device);
+		if (flow == eRender && role == eConsole)
+		{
+			auto device = GetDeviceById(pwstrDefaultDeviceId);
+			FireDefaultDeviceChanged(device);
+		}
 		return S_OK;
 	}
 
