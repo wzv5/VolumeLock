@@ -79,6 +79,10 @@ private:
 
     virtual void OnSessionRemoved(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session, int reason) override
     {
+        if (m_targetsessions.find(session) == m_targetsessions.end())
+        {
+            return;
+        }
         session->UnregisterNotification(this);
         m_targetsessions.erase(session);
         if (reason == 1000)
