@@ -1,7 +1,7 @@
 ﻿#include <iostream>
 #include <map>
 #include <sstream>
-#include <filesystem>
+#include <regex>
 
 #include <windows.h>
 
@@ -13,7 +13,7 @@ using namespace std;
 class VolumeLock : private AudioDeviceEvents, private AudioSessionEvents, private AudioDeviceEnumeratorEvents
 {
 public:
-    VolumeLock(const filesystem::path& path, int volume) : m_targetprocess(path), m_targetvolume(volume)
+    VolumeLock(const wregex& path, int volume) : m_targetprocess(path), m_targetvolume(volume)
     {
         auto device = m_enumerator.GetDefaultDevice();
         OnDefaultDeviceChanged(device);
@@ -79,7 +79,7 @@ private:
     {
         auto pid = session->GetProcessId();
         auto path = session->GetProcessPath();
-        if (m_targetprocess == path)
+        if (std::regex_match(path.c_str(), m_targetprocess))
         {
             Log(stringstream() << "[" << session->GetProcessId() << "] 发现目标进程");
             //Log(session->GetInstanceId());
@@ -135,7 +135,7 @@ private:
     }
 
 private:
-    filesystem::path m_targetprocess;
+    wregex m_targetprocess;
     int m_targetvolume;
 
     AudioDeviceEnumerator m_enumerator;
@@ -159,10 +159,10 @@ int wmain(int argc, wchar_t** argv)
         return 0;
     }
 
-    filesystem::path targetprocess = argv[1];
+    std::wregex targetprocess(argv[1], std::regex::ECMAScript | std::regex::icase);
     int targetvolume = stoi(argv[2]);
 
-    Log(wstringstream() << L"锁定 [" << targetprocess.wstring() << L"] 的音量为 [" << targetvolume << L"]");
+    Log(wstringstream() << L"锁定 [" << argv[1] << L"] 的音量为 [" << targetvolume << L"]");
     Log("正在初始化 ...");
 
     VolumeLock lock(targetprocess, targetvolume);

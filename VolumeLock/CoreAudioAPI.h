@@ -10,6 +10,7 @@
 #include <thread>
 #include <set>
 #include <mutex>
+#include <filesystem>
 
 #include <atlbase.h>
 #include <mmdeviceapi.h>
