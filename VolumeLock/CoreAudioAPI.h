@@ -81,6 +81,21 @@ public:
 		CoTaskMemFree(pStr);
 		pStr = nullptr;
 
+		if (m_ProcessId)
+		{
+			auto hp = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, m_ProcessId);
+			if (hp)
+			{
+				DWORD buflen = 260;
+				std::vector<wchar_t> buf(buflen);
+				if (QueryFullProcessImageName(hp, 0, buf.data(), &buflen))
+				{
+					m_ProcessPath = buf.data();
+				}
+				CloseHandle(hp);
+			}
+		}
+
 		ThrowIfError(session->RegisterAudioSessionNotification(this));
 	}
 
@@ -118,6 +133,11 @@ public:
 	const std::wstring& GetIconPath()
 	{
 		return m_IconPath;
+	}
+
+	const std::filesystem::path& GetProcessPath()
+	{
+		return m_ProcessPath;
 	}
 
 	AudioSessionState GetState()
@@ -315,6 +335,7 @@ private:
 	std::wstring m_Id;
 	std::wstring m_InstanceId;
 	std::wstring m_IconPath;
+	std::filesystem::path m_ProcessPath;
 
 	std::set<AudioSessionEvents*> m_callback;
 	std::set<AudioSessionEvents_Inner*> m_callback_inner;

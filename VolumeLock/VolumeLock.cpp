@@ -10,27 +10,6 @@
 
 using namespace std;
 
-wstring GetProcessImage(DWORD pid)
-{
-    if (pid == 0)
-    {
-        return {};
-    }
-    wstring result;
-    auto hp = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (hp)
-    {
-        DWORD buflen = 260;
-        vector<wchar_t> buf(buflen);
-        if (QueryFullProcessImageName(hp, 0, buf.data(), &buflen))
-        {
-            result = buf.data();
-        }
-        CloseHandle(hp);
-    }
-    return result;
-}
-
 class VolumeLock : private AudioDeviceEvents, private AudioSessionEvents, private AudioDeviceEnumeratorEvents
 {
 public:
@@ -99,7 +78,7 @@ private:
     virtual void OnSessionAdded(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session) override
     {
         auto pid = session->GetProcessId();
-        auto path = GetProcessImage(pid);
+        auto path = session->GetProcessPath();
         if (m_targetprocess == path)
         {
             Log(stringstream() << "[" << session->GetProcessId() << "] 发现目标进程");
