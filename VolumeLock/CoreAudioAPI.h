@@ -539,8 +539,9 @@ public:
 		std::lock_guard lock(m_mutex);
 		CComPtr<IMMDevice> device;
 		ThrowIfError(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device));
-		auto wrapper = std::make_shared<AudioDevice>(device);
-		return GetDeviceById(wrapper->GetId());
+		CComHeapPtr<WCHAR> comstr;
+		ThrowIfError(device->GetId(&comstr));
+		return GetDeviceById(std::wstring(comstr));
 	}
 
 	void RegisterNotification(AudioDeviceEnumeratorEvents* cb)
