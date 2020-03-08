@@ -369,31 +369,6 @@ public:
 		var.Clear();
 		ThrowIfError(prop->GetValue(PKEY_DeviceInterface_FriendlyName, &var));
 		m_InterfaceFriendlyName = var;
-
-		ThrowIfError(manager->RegisterSessionNotification(this));
-
-		CComPtr<IAudioSessionEnumerator> sessionenum;
-		if (SUCCEEDED(manager->GetSessionEnumerator(&sessionenum)))
-		{
-			int sessioncount = 0;
-			ThrowIfError(sessionenum->GetCount(&sessioncount));
-			for (int i = 0; i < sessioncount; i++)
-			{
-				try
-				{
-					CComPtr<IAudioSessionControl> session;
-					ThrowIfError(sessionenum->GetSession(i, &session));
-					CComQIPtr<IAudioSessionControl2> session2(session);
-					auto wrapper = std::make_shared<AudioSession>(session2);
-					m_sessions.insert(wrapper);
-					wrapper->RegisterNotification_Inner(this);
-				}
-				catch (const std::exception&)
-				{
-					// 任何原因失败都忽略该会话
-				}
-			}
-		}
 	}
 
 	~AudioDevice()
@@ -435,6 +410,8 @@ public:
 
 	std::vector<std::shared_ptr<AudioSession>> GetAllSession()
 	{
+		std::lock_guard lock(m_mutex);
+		InitSessions();
 		std::vector<std::shared_ptr<AudioSession>> result;
 		for (auto&& i : m_sessions)
 		{
@@ -446,6 +423,7 @@ public:
 	void RegisterNotification(AudioDeviceEvents* cb)
 	{
 		std::lock_guard lock(m_mutex);
+		InitSessions();
 		m_callback.insert(cb);
 	}
 
@@ -456,6 +434,40 @@ public:
 	}
 
 private:
+	void InitSessions()
+	{
+		if (m_initSessions)
+		{
+			return;
+		}
+		m_initSessions = true;
+
+		ThrowIfError(manager->RegisterSessionNotification(this));
+
+		CComPtr<IAudioSessionEnumerator> sessionenum;
+		if (SUCCEEDED(manager->GetSessionEnumerator(&sessionenum)))
+		{
+			int sessioncount = 0;
+			ThrowIfError(sessionenum->GetCount(&sessioncount));
+			for (int i = 0; i < sessioncount; i++)
+			{
+				try
+				{
+					CComPtr<IAudioSessionControl> session;
+					ThrowIfError(sessionenum->GetSession(i, &session));
+					CComQIPtr<IAudioSessionControl2> session2(session);
+					auto wrapper = std::make_shared<AudioSession>(session2);
+					m_sessions.insert(wrapper);
+					wrapper->RegisterNotification_Inner(this);
+				}
+				catch (const std::exception&)
+				{
+					// 任何原因失败都忽略该会话
+				}
+			}
+		}
+	}
+
 	void FireSessionAdd(std::shared_ptr<AudioSession> session)
 	{
 		for (auto&& cb : m_callback)
@@ -528,6 +540,7 @@ private:
 	std::set<AudioDeviceEvents*> m_callback;
 
 	std::mutex m_mutex;
+	bool m_initSessions = false;
 };
 
 class AudioDeviceEnumerator : private UnknownImp<IMMNotificationClient>
