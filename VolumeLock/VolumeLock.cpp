@@ -64,7 +64,7 @@ std::optional<std::wstring> Utf8ToWide(const std::string& s)
     // 如果不考虑跨平台，可以调用 Windows API 来实现
 
     auto locstr = {
-        ".65001"
+        ".65001",
         "zh-CN.65001",
         "zh_CN.UTF-8",
         "en-US.65001",
