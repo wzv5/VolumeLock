@@ -4,6 +4,7 @@
 #include <regex>
 #include <optional>
 #include <algorithm>
+#include <mutex>
 
 #include <windows.h>
 #include <yaml-cpp/yaml.h>
@@ -166,6 +167,7 @@ private:
 
     void ReloadSession()
     {
+        lock_guard lock(m_mutex);
         //Log("重载会话列表 ...");
         auto sessions = m_device->GetAllSession();
         for (auto& item : sessions)
@@ -176,6 +178,7 @@ private:
 
     void ClearTargetSession()
     {
+        lock_guard lock(m_mutex);
         for (auto&& i : m_targetsessions)
         {
             i->UnregisterNotification(this);
@@ -230,6 +233,7 @@ private:
 
     virtual void OnSessionRemoved(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session, int reason) override
     {
+        lock_guard lock(m_mutex);
         if (m_targetsessions.find(session) == m_targetsessions.end())
         {
             return;
@@ -250,6 +254,7 @@ private:
 
     virtual void OnSessionAdded(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session) override
     {
+        lock_guard lock(m_mutex);
         auto config = GetConfig(session->GetProcessPath());
         if (config)
         {
@@ -270,6 +275,7 @@ private:
 
     virtual void OnDefaultDeviceChanged(shared_ptr<AudioDevice> device) override
     {
+        lock_guard lock(m_mutex);
         Log(wstringstream() << L"默认输出设备：" << device->GetFriendlyName());
         if (m_device)
         {
@@ -283,6 +289,7 @@ private:
 
     virtual void OnDeviceStateChanged(shared_ptr<AudioDevice> device, DWORD state) override
     {
+        lock_guard lock(m_mutex);
         switch (state)
         {
         case DEVICE_STATE_ACTIVE:
@@ -314,6 +321,7 @@ private:
 
     vector<ConfigItem> m_configs;
     map<DWORD, int> m_pidToVolume;
+    recursive_mutex m_mutex;
 };
 
 int wmain(int argc, wchar_t** argv)
