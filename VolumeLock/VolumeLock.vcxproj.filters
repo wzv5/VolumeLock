@@ -18,6 +18,9 @@
     <ClCompile Include="VolumeLock.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="CoreAudioAPI.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ComHelper.h">

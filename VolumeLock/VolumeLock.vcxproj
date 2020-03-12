@@ -154,6 +154,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CoreAudioAPI.cpp" />
     <ClCompile Include="VolumeLock.cpp" />
   </ItemGroup>
   <ItemGroup>
