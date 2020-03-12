@@ -11,6 +11,7 @@
 #include <set>
 #include <mutex>
 #include <filesystem>
+#include <optional>
 
 #include <atlbase.h>
 #include <mmdeviceapi.h>
@@ -576,7 +577,12 @@ public:
 		ThrowIfError(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device));
 		CComHeapPtr<WCHAR> comstr;
 		ThrowIfError(device->GetId(&comstr));
-		return GetDeviceById(std::wstring(comstr));
+		auto wrapper = GetDeviceById(std::wstring(comstr));
+		if (!wrapper.has_value())
+		{
+			throw std::runtime_error("");
+		}
+		return wrapper.value();
 	}
 
 	void RegisterNotification(AudioDeviceEnumeratorEvents* cb)
@@ -592,11 +598,11 @@ public:
 	}
 
 private:
-	std::shared_ptr<AudioDevice> GetDeviceById(const std::wstring& id)
+	std::optional<std::shared_ptr<AudioDevice>> GetDeviceById(const std::wstring& id)
 	{
 		if (m_devices.find(id) == m_devices.end())
 		{
-			throw new std::runtime_error("");
+			return {};
 		}
 		return m_devices.at(id);
 	}
@@ -644,7 +650,10 @@ private:
 	{
 		std::lock_guard lock(m_mutex);
 		auto device = GetDeviceById(pwstrDeviceId);
-		FireDeviceStateChanged(device, dwNewState);
+		if (device.has_value())
+		{
+			FireDeviceStateChanged(device.value(), dwNewState);
+		}
 		return S_OK;
 	}
 
@@ -667,8 +676,11 @@ private:
 	{
 		std::lock_guard lock(m_mutex);
 		auto device = GetDeviceById(pwstrDeviceId);
-		m_devices.erase(pwstrDeviceId);
-		FireDeviceRemoved(device);
+		if (device.has_value())
+		{
+			m_devices.erase(pwstrDeviceId);
+			FireDeviceRemoved(device.value());
+		}
 		return S_OK;
 	}
 
@@ -684,7 +696,10 @@ private:
 		if (flow == eRender && role == eConsole)
 		{
 			auto device = GetDeviceById(pwstrDefaultDeviceId);
-			FireDefaultDeviceChanged(device);
+			if (device.has_value())
+			{
+				FireDefaultDeviceChanged(device.value());
+			}
 		}
 		return S_OK;
 	}
