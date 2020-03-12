@@ -51,27 +51,6 @@ private:
     LONG _cRef = 1;
 };
 
-template <typename T1, typename T2>
-class UnknownImp2 : public UnknownImp<T1>
-{
-public:
-    virtual HRESULT STDMETHODCALLTYPE QueryInterface(
-        REFIID  riid,
-        VOID** ppvInterface)
-    {
-        if (__uuidof(T2) == riid)
-        {
-            UnknownImp<T1>::AddRef();
-            *ppvInterface = (T2*)this;
-        }
-        else
-        {
-            return UnknownImp<T1>::QueryInterface(riid, ppvInterface);
-        }
-        return S_OK;
-    }
-};
-
 class PropVarStr
 {
 public:
