@@ -332,7 +332,8 @@ int wmain(int argc, wchar_t** argv)
 {
     CoInitializeEx(0, 0);
     
-    locale::global(locale(".65001"));
+    // 使用 UTF-8 语言环境，除了数值，不要对数值使用逗号分割
+    locale::global(locale(locale::classic(), locale(".65001"), locale::all & (locale::all ^ locale::numeric)));
 
     auto configpath = GetExePath() / L"config.yaml";
     VolumeLock lock(configpath);
