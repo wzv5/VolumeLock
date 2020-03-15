@@ -146,12 +146,21 @@ class VolumeLock : private AudioDeviceEvents, private AudioSessionEvents, privat
 public:
     VolumeLock(const filesystem::path& configpath)
     {
-        auto config = YAML::LoadFile(configpath.string());
-        for (size_t i = 0; i < config.size(); i++)
+        try
         {
-            m_configs.emplace_back(config[i].as<ConfigItem>());
+            auto config = YAML::LoadFile(configpath.string());
+            for (size_t i = 0; i < config.size(); i++)
+            {
+                m_configs.emplace_back(config[i].as<ConfigItem>());
+            }
         }
-
+        catch (const std::exception& e)
+        {
+            PrintTime();
+            wcerr << L"加载配置失败：" << e.what() << endl;
+            return;
+        }
+        
         auto device = m_enumerator.GetDefaultDevice();
         OnDefaultDeviceChanged(device);
         m_enumerator.RegisterNotification(this);
@@ -168,7 +177,6 @@ private:
     void ReloadSession()
     {
         lock_guard lock(m_mutex);
-        //Log("重载会话列表 ...");
         auto sessions = m_device->GetAllSession();
         for (auto& item : sessions)
         {
@@ -226,7 +234,7 @@ private:
         auto targetVolume = m_pidToVolume[session->GetProcessId()];
         if (volume != targetVolume)
         {
-            Log(stringstream() << "[" << session->GetProcessId() << "] 设置目标进程音量：" << volume << " => " << targetVolume);
+            Log(wstringstream() << L"[" << session->GetProcessId() << L"] 设置目标进程音量：" << volume << L" => " << targetVolume);
             session->SetVolume(targetVolume);
         }
     }
@@ -243,13 +251,12 @@ private:
         m_pidToVolume.erase(session->GetProcessId());
         if (reason == 1000)
         {
-            Log(stringstream() << "[" << session->GetProcessId() << "] 进程已停止");
+            Log(wstringstream() << L"[" << session->GetProcessId() << L"] 进程已停止");
         }
         else
         {
-            Log(stringstream() << "[" << session->GetProcessId() << "] 进程已断开");
+            Log(wstringstream() << L"[" << session->GetProcessId() << L"] 进程已断开");
         }
-        //Log(stringstream() << "当前监视中的会话数量：" << m_targetsessions.size());
     }
 
     virtual void OnSessionAdded(std::shared_ptr<AudioDevice> device, std::shared_ptr<AudioSession> session) override
@@ -258,14 +265,11 @@ private:
         auto config = GetConfig(session->GetProcessPath());
         if (config)
         {
-            Log(stringstream() << "[" << session->GetProcessId() << "] 发现目标进程");
-            //Log(session->GetInstanceId());
+            Log(wstringstream() << L"[" << session->GetProcessId() << L"] 发现目标进程");
             m_targetsessions.insert(session);
             m_pidToVolume[session->GetProcessId()] = config->Volume;
             session->RegisterNotification(this);
-            //Log(stringstream() << "当前监视中的会话数量：" << m_targetsessions.size());
             OnVolumeChanged(session, session->GetVolume());
-            //session->SetVolume(g_targetvolume);
         }
         else
         {
@@ -328,13 +332,12 @@ int wmain(int argc, wchar_t** argv)
 {
     CoInitializeEx(0, 0);
     
-    // 使用本地语言环境，除了数值，不要对数值使用逗号分割
-    locale::global(locale(locale::classic(), locale(""), locale::all & (locale::all ^ locale::numeric)));
+    locale::global(locale(".65001"));
 
-    auto configpath = GetExePath() / "config.yaml";
+    auto configpath = GetExePath() / L"config.yaml";
     VolumeLock lock(configpath);
 
-    Log("开始运行，按回车键退出 ...");
+    Log(L"开始运行，按回车键退出 ...");
     cin.get();
-    Log("结束");
+    Log(L"结束");
 }

@@ -1,4 +1,4 @@
-#include "CoreAudioAPI.h"
+ï»¿#include "CoreAudioAPI.h"
 
 #include <stdexcept>
 #include <algorithm>
@@ -57,7 +57,7 @@ AudioSession::~AudioSession()
 	std::lock_guard lock(m_mutex);
 	volume.Release();
 	session->UnregisterAudioSessionNotification(this);
-	// ÔÚºóÌ¨Ïß³ÌÊÍ·Å£¬Windows ÏµÍ³±¾Éí»áÄªÃû³öÏÖ¶àÏß³Ì¾ºÕù×´Ì¬£¬³¤Ê±¼ä¿¨ËÀÔÚÊÍ·Å½×¶Î
+	// åœ¨åå°çº¿ç¨‹é‡Šæ”¾ï¼ŒWindows ç³»ç»Ÿæœ¬èº«ä¼šè«åå‡ºç°å¤šçº¿ç¨‹ç«äº‰çŠ¶æ€ï¼Œé•¿æ—¶é—´å¡æ­»åœ¨é‡Šæ”¾é˜¶æ®µ
 	std::thread::thread([](IAudioSessionControl2* session) {
 		session->Release();
 		}, session.Detach()).detach();
@@ -153,7 +153,7 @@ void AudioSession::FireStateChanged(AudioSessionState state)
 	}
 	else
 	{
-		// ÒÔÏÂ²Ù×÷¿ÉÄÜµ¼ÖÂµ±Ç°¶ÔÏó±»ÊÍ·Å£¬ÏÈ±¸·İ
+		// ä»¥ä¸‹æ“ä½œå¯èƒ½å¯¼è‡´å½“å‰å¯¹è±¡è¢«é‡Šæ”¾ï¼Œå…ˆå¤‡ä»½
 		auto self = shared_from_this();
 		std::vector<AudioSessionEvents_Inner*> cb_copy(m_callback_inner.size());
 		std::copy(m_callback_inner.begin(), m_callback_inner.end(), cb_copy.begin());
@@ -166,7 +166,7 @@ void AudioSession::FireStateChanged(AudioSessionState state)
 
 void AudioSession::FireSessionDisconnected(AudioSessionDisconnectReason reason)
 {
-	// ÒÔÏÂ²Ù×÷¿ÉÄÜµ¼ÖÂµ±Ç°¶ÔÏó±»ÊÍ·Å£¬ÏÈ±¸·İ
+	// ä»¥ä¸‹æ“ä½œå¯èƒ½å¯¼è‡´å½“å‰å¯¹è±¡è¢«é‡Šæ”¾ï¼Œå…ˆå¤‡ä»½
 	auto self = shared_from_this();
 	std::vector<AudioSessionEvents_Inner*> cb_copy(m_callback_inner.size());
 	std::copy(m_callback_inner.begin(), m_callback_inner.end(), cb_copy.begin());
@@ -314,7 +314,7 @@ void AudioDevice::InitSessions()
 			}
 			catch (const std::exception&)
 			{
-				// ÈÎºÎÔ­ÒòÊ§°Ü¶¼ºöÂÔ¸Ã»á»°
+				// ä»»ä½•åŸå› å¤±è´¥éƒ½å¿½ç•¥è¯¥ä¼šè¯
 			}
 		}
 	}
@@ -348,8 +348,8 @@ void AudioDevice::OnDisconnected(std::shared_ptr<AudioSession> session, AudioSes
 {
 	std::lock_guard lock(m_mutex);
 	session->UnregisterNotification_Inner(this);
-	// TODO: ²Â²â API ÄÚ²¿ÔÚÒ»¸ö±éÀúÑ­»·ÖĞ»Øµ÷£¬»Øµ÷ÖĞÉ¾³ıÆäÖĞµÄ³ÉÔ±»áµ¼ÖÂ±ÀÀ£»òÒì³£
-	// ÔİÊ±½â¾ö·½°¸ÊÇÔÚºóÌ¨Ïß³ÌÖĞÊÍ·Å
+	// TODO: çŒœæµ‹ API å†…éƒ¨åœ¨ä¸€ä¸ªéå†å¾ªç¯ä¸­å›è°ƒï¼Œå›è°ƒä¸­åˆ é™¤å…¶ä¸­çš„æˆå‘˜ä¼šå¯¼è‡´å´©æºƒæˆ–å¼‚å¸¸
+	// æš‚æ—¶è§£å†³æ–¹æ¡ˆæ˜¯åœ¨åå°çº¿ç¨‹ä¸­é‡Šæ”¾
 	std::thread::thread([](std::shared_ptr<AudioSession> s) {
 		Sleep(1000);
 		s.reset();
